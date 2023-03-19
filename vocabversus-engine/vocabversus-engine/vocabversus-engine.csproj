@@ -7,8 +7,4 @@
     <RootNamespace>vocabversus_engine</RootNamespace>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Folder Include="Models\Responses\" />
-  </ItemGroup>
-
 </Project>
