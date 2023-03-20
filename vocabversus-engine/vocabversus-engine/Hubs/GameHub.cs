@@ -26,18 +26,17 @@ namespace vocabversus_engine.Hubs
             => await Clients.Others.SendAsync("ReceiveMessage", $"{Context.ConnectionId}: {message}");
 
         [HubMethodName("Join")]
-        public async Task<bool> JoinGameInstance(string gameId)
+        public async Task JoinGameInstance(string gameId)
         {
             // Get initialized game instance data
             var gameInstance = _gameInstanceCache.Retrieve(gameId);
             // If no game instance was found, either no game with given Id has been initialized or the session has expired
-            if (gameInstance is null) return false;
+            if (gameInstance is null) throw new HubException($"No game instance found for given identifier: {gameId}");
 
             await Groups.AddToGroupAsync(Context.ConnectionId, gameId);
 
             // Send message to group members
             await Clients.OthersInGroup(gameId).SendAsync("ReceiveMessage", $"{Context.ConnectionId} joined the game");
-            return true;
         }
     }
 }
