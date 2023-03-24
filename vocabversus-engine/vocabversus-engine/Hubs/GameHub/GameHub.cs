@@ -28,22 +28,17 @@ namespace vocabversus_engine.Hubs.GameHub
             => await Clients.Others.SendAsync("ReceiveMessage", $"{Context.ConnectionId}: {message}");
 
         [HubMethodName("Connect")]
-        public async Task JoinGameGroup(string gameId)
+        public async Task CheckGameInstanceAvailability(string gameId)
         {
-            // Get initialized game instance data
-            var gameInstance = _gameInstanceCache.Retrieve(gameId);
-            // If no game instance was found, either no game with given Id has been initialized or the session has expired
-            if (gameInstance is null) throw GameHubException.CreateIdentifierError(gameId);
-            await Groups.AddToGroupAsync(Context.ConnectionId, gameId);
+            // Get initialized game instance data if available
+            var gameInstance = _gameInstanceCache.Retrieve(gameId) ?? throw GameHubException.CreateIdentifierError(gameId);
         }
 
         [HubMethodName("Join")]
         public async Task<JoinGameInstanceResponse> JoinGameInstance(string gameId, string username)
         {
-            // Get initialized game instance data
-            var gameInstance = _gameInstanceCache.Retrieve(gameId);
-            // If no game instance was found, either no game with given Id has been initialized or the session has expired
-            if (gameInstance is null) throw GameHubException.CreateIdentifierError(gameId);
+            // Get initialized game instance data, if no game instance was found either no game with given Id has been initialized or the session has expired
+            var gameInstance = _gameInstanceCache.Retrieve(gameId) ?? throw GameHubException.CreateIdentifierError(gameId);
             var personalIdentifier = Context.ConnectionId;
             try
             {
@@ -54,7 +49,8 @@ namespace vocabversus_engine.Hubs.GameHub
                 throw GameHubException.Create("Could not add user, either the game is full or user has already joined game instance", GameHubExceptionCode.UserAddFailed);
             }
 
-            // Send message to group members
+            // subscribe player to the game instance via group connection
+            await Groups.AddToGroupAsync(Context.ConnectionId, gameId);
             await Clients.OthersInGroup(gameId).SendAsync("UserJoined", username);
             return new JoinGameInstanceResponse
             {
