@@ -43,6 +43,17 @@ namespace vocabversus_engine.Utility
                 guidIdentifier = Guid.NewGuid();
             return guidIdentifier.ToString();
         }
+
+        /// <inheritdoc />
+        /// <exception cref="ArgumentException">game instance could not be found</exception>
+        /// <exception cref="ArgumentException">player could not be added to the game instance</exception>
+        public void AddUser(string userIdentifier, string username, string gameIdentifier)
+        {
+            if (!_memoryCache.TryGetValue($"{_cacheKey}_{gameIdentifier}", out GameInstance game))
+                throw new ArgumentException("no game instance found at identifier");
+            game.PlayerInformation.AddPlayer(userIdentifier, username);
+            Register(game, gameIdentifier);
+        }
     }
 
 }

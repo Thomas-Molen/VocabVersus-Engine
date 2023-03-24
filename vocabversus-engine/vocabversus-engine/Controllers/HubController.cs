@@ -28,11 +28,14 @@ namespace vocabversus_engine.Controllers
 
                 // Create game instance to register in cache, for reference in SignalR Hubs
                 identifier = _gameInstanceCache.GetNewIdentifier();
-                GameInstance gameInstance = new GameInstance
+                GameInstance gameInstance = new()
                 {
                     Identifier = identifier,
                     WordSet = request.WordSet,
-                    PlayerCount = request.PlayerCount
+                    PlayerInformation = new PlayerContainer
+                    {
+                        MaxPlayers = request.MaxPlayerCount
+                    }
                 };
                 _gameInstanceCache.Register(gameInstance, identifier);
             }

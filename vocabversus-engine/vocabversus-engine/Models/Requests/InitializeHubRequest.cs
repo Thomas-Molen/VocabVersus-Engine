@@ -2,7 +2,7 @@
 {
     public class InitializeHubRequest
     {
-        public int PlayerCount { get; set; }
+        public int MaxPlayerCount { get; set; }
         public Guid WordSet { get; set; }
     }
 }

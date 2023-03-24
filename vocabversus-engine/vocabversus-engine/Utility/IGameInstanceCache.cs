@@ -13,6 +13,15 @@ namespace vocabversus_engine.Utility
         GameInstance Register(GameInstance data, string identifier);
 
         /// <summary>
+        /// Adds user data to a <see cref="GameInstance">
+        /// </summary>
+        /// <param name="userIdentifier">unique value to reference user</param>
+        /// <param name="username">display name for the user</param>
+        /// <param name="gameIdentifier">identifier for cache entry to add user data to</param>
+        /// <returns><see cref="GameInstance"> the user data has been added to</returns>
+        void AddUser(string userIdentifier, string username, string gameIdentifier);
+
+        /// <summary>
         /// Obtain the data stored at the identifier location
         /// </summary>
         /// <param name="identifier"></param>
