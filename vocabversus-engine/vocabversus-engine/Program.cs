@@ -1,4 +1,5 @@
 using vocabversus_engine.Hubs;
+using vocabversus_engine.Hubs.GameHub;
 using vocabversus_engine.Utility;
 
 var builder = WebApplication.CreateBuilder(args);

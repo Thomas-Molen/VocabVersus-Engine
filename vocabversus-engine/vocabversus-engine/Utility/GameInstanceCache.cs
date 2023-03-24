@@ -7,7 +7,7 @@ namespace vocabversus_engine.Utility
     {
         protected readonly IMemoryCache _memoryCache;
         protected const string _cacheKey = "game-instance";
-        private const int _relativeExpirationTimeInMinutes = 30;
+        private const int _relativeExpirationTimeInMinutes = 120;
 
         public GameInstanceCache(IMemoryCache memoryCache)
         {
@@ -46,7 +46,6 @@ namespace vocabversus_engine.Utility
 
         /// <inheritdoc />
         /// <exception cref="ArgumentException">game instance could not be found</exception>
-        /// <exception cref="ArgumentException">player could not be added to the game instance</exception>
         public void AddUser(string userIdentifier, string username, string gameIdentifier)
         {
             if (!_memoryCache.TryGetValue($"{_cacheKey}_{gameIdentifier}", out GameInstance game))
