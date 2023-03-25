@@ -11,6 +11,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSignalR();
 
 builder.Services.AddSingleton<IGameInstanceCache, GameInstanceCache>();
+builder.Services.AddSingleton<UserReferenceCache>();
 
 var app = builder.Build();
 
