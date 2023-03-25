@@ -27,7 +27,7 @@ namespace vocabversus_engine.Hubs.GameHub
         public async Task SendMessage(string message)
             => await Clients.Others.SendAsync("ReceiveMessage", $"{Context.ConnectionId}: {message}");
 
-        [HubMethodName("Connect")]
+        [HubMethodName("CheckGame")]
         public async Task CheckGameInstanceAvailability(string gameId)
         {
             // Get initialized game instance data if available
