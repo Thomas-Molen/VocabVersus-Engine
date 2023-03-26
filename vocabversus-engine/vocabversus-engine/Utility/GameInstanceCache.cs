@@ -30,7 +30,7 @@ namespace vocabversus_engine.Utility
         }
 
         /// <inheritdoc/>
-        public void Clear(string identifier)
+        public void Remove(string identifier)
         {
             _memoryCache.Remove($"{_cacheKey}_{identifier}");
         }
@@ -46,11 +46,22 @@ namespace vocabversus_engine.Utility
 
         /// <inheritdoc />
         /// <exception cref="ArgumentException">game instance could not be found</exception>
-        public void AddUser(string userIdentifier, string username, string gameIdentifier)
+        public void UserJoined(string userIdentifier, string username, string gameIdentifier)
         {
             if (!_memoryCache.TryGetValue($"{_cacheKey}_{gameIdentifier}", out GameInstance game))
                 throw new ArgumentException("no game instance found at identifier");
             game.PlayerInformation.AddPlayer(userIdentifier, username);
+            Register(game, gameIdentifier);
+        }
+
+        /// <inheritdoc />
+        /// <exception cref="ArgumentException">game instance could not be found</exception>
+        public void UserDisconnected(string userIdentifier, string gameIdentifier)
+        {
+            if (!_memoryCache.TryGetValue($"{_cacheKey}_{gameIdentifier}", out GameInstance game))
+                throw new ArgumentException("no game instance found at identifier");
+            game.PlayerInformation.DisconnectPlayer(userIdentifier);
+            Remove(gameIdentifier);
             Register(game, gameIdentifier);
         }
     }

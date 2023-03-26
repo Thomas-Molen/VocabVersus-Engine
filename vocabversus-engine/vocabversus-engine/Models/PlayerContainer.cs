@@ -9,7 +9,10 @@ namespace vocabversus_engine.Models
         /// </summary>
         public int MaxPlayers { get; set; } = 4;
 
-        public Dictionary<string, string> Players { get; private set; } = new();
+        /// <summary>
+        /// List of all players in container, Key = playerIdentifier
+        /// </summary>
+        public Dictionary<string, GamePlayerRecord> Players { get; private set; } = new();
 
         /// <summary>
         /// Adds player to the container
@@ -21,8 +24,19 @@ namespace vocabversus_engine.Models
         public void AddPlayer(string playerIdentifier, string username)
         {
             if (MaxPlayers == Players.Count) throw new MaximumPlayerException("player container already full");
-            bool addPlayerResult = Players.TryAdd(playerIdentifier, username);
+            bool addPlayerResult = Players.TryAdd(playerIdentifier, new GamePlayerRecord { username = username});
             if (!addPlayerResult) throw new DuplicatePlayerException("player already exists in the container");
+        }
+
+        /// <summary>
+        /// Changes player to disconnected status
+        /// </summary>
+        /// <param name="playerIdentifier"></param>
+        /// <exception cref="MissingPlayerException">when user was not found in the game, possibly due to being explicitely removed</exception>
+        public void DisconnectPlayer(string playerIdentifier)
+        {
+            GamePlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
+            player.isConnected = false;
         }
     }
 }

@@ -1,8 +1,10 @@
-﻿namespace vocabversus_engine.Hubs.GameHub.Responses
+﻿using vocabversus_engine.Models;
+
+namespace vocabversus_engine.Hubs.GameHub.Responses
 {
     public class JoinGameInstanceResponse
     {
-        public Dictionary<string, string> Players { get; set; }
+        public Dictionary<string, GamePlayerRecord> Players { get; set; }
         public string PersonalIdentifier { get; set; }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using vocabversus_engine.Hubs.GameHub.Responses;
+using vocabversus_engine.Models;
 using vocabversus_engine.Models.Exceptions;
 using vocabversus_engine.Utility;
 
@@ -9,27 +10,25 @@ namespace vocabversus_engine.Hubs.GameHub
     public class GameHub : Hub
     {
         private readonly IGameInstanceCache _gameInstanceCache;
-        private readonly UserReferenceCache _userGameReferences;
-        public GameHub(IGameInstanceCache gameInstanceCache, UserReferenceCache userGameReferences)
+        private readonly IPlayerConnectionCache _playerConnectionCache;
+        public GameHub(IGameInstanceCache gameInstanceCache, IPlayerConnectionCache playerConnectionCache)
         {
             _gameInstanceCache = gameInstanceCache;
-            _userGameReferences = userGameReferences;
+            _playerConnectionCache = playerConnectionCache;
         }
         // Trigger on connecting to the Hub
         public override async Task OnConnectedAsync()
         {
         }
 
-        // Trigger on disconnect from the Hub
+        // When player connection goes out of scope, notify all relevant games
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            List<string> gamesToNotify = _userGameReferences._userGameReferences.GetValueOrDefault(Context.ConnectionId) ?? new List<string>();
-            await Clients.Groups(gamesToNotify).SendAsync("UserLeft", Context.ConnectionId);
+            PlayerConnection? playerConnection = _playerConnectionCache.Retrieve(Context.ConnectionId);
+            if (playerConnection is null) return;
+            _gameInstanceCache.UserDisconnected(playerConnection.PlayerIdentifier, playerConnection.GameInstanceIdentifier);
+            await Clients.Group(playerConnection.GameInstanceIdentifier).SendAsync("UserLeft", Context.ConnectionId);
         }
-
-        [HubMethodName("SendMessage")]
-        public async Task SendMessage(string message)
-            => await Clients.Others.SendAsync("ReceiveMessage", $"{Context.ConnectionId}: {message}");
 
         [HubMethodName("CheckGame")]
         public async Task CheckGameInstanceAvailability(string gameId)
@@ -41,13 +40,12 @@ namespace vocabversus_engine.Hubs.GameHub
         [HubMethodName("Join")]
         public async Task<JoinGameInstanceResponse> JoinGameInstance(string gameId, string username)
         {
-
             // Get initialized game instance data, if no game instance was found either no game with given Id has been initialized or the session has expired
             var gameInstance = _gameInstanceCache.Retrieve(gameId) ?? throw GameHubException.CreateIdentifierError(gameId);
             var personalIdentifier = Context.ConnectionId;
             try
             {
-                _gameInstanceCache.AddUser(personalIdentifier, username, gameId);
+                _gameInstanceCache.UserJoined(personalIdentifier, username, gameId);
             }
             catch (PlayerException)
             {
@@ -58,10 +56,13 @@ namespace vocabversus_engine.Hubs.GameHub
             await Groups.AddToGroupAsync(Context.ConnectionId, gameId);
             await Clients.OthersInGroup(gameId).SendAsync("UserJoined", username, Context.ConnectionId);
 
-            // TODO: clean up this user game reference
-            List<string> gamesOfUser = _userGameReferences._userGameReferences.GetValueOrDefault(Context.ConnectionId) ?? new List<string>();
-            gamesOfUser.Add(gameId);
-            _userGameReferences._userGameReferences[Context.ConnectionId] = gamesOfUser;
+            // add connection instance to the connections cache for reference when the context goes out of scope (e.g. connection disconnects)
+            _playerConnectionCache.Register(new PlayerConnection
+            {
+                Identifier = Context.ConnectionId,
+                GameInstanceIdentifier = gameId,
+                PlayerIdentifier = personalIdentifier
+            }, Context.ConnectionId);
 
             return new JoinGameInstanceResponse
             {
