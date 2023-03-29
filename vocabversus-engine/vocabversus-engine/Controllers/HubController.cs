@@ -35,7 +35,8 @@ namespace vocabversus_engine.Controllers
                     PlayerInformation = new PlayerContainer
                     {
                         MaxPlayers = request.MaxPlayerCount
-                    }
+                    },
+                    State = GameState.Lobby
                 };
                 _gameInstanceCache.Register(gameInstance, identifier);
             }

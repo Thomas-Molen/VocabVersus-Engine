@@ -2,6 +2,13 @@
 
 namespace vocabversus_engine.Models
 {
+    public class PlayerRecord
+    {
+        public string username { get; set; }
+        public bool isConnected { get; set; } = true;
+        public bool isReady { get; set; } = false;
+    }
+
     public class PlayerContainer
     {
         /// <summary>
@@ -12,7 +19,7 @@ namespace vocabversus_engine.Models
         /// <summary>
         /// List of all players in container, Key = playerIdentifier
         /// </summary>
-        public Dictionary<string, GamePlayerRecord> Players { get; private set; } = new();
+        public Dictionary<string, PlayerRecord> Players { get; private set; } = new();
 
         /// <summary>
         /// Adds player to the container
@@ -24,7 +31,7 @@ namespace vocabversus_engine.Models
         public void AddPlayer(string playerIdentifier, string username)
         {
             if (MaxPlayers == Players.Count) throw new MaximumPlayerException("player container already full");
-            bool addPlayerResult = Players.TryAdd(playerIdentifier, new GamePlayerRecord { username = username});
+            bool addPlayerResult = Players.TryAdd(playerIdentifier, new PlayerRecord { username = username});
             if (!addPlayerResult) throw new DuplicatePlayerException("player already exists in the container");
         }
 
@@ -44,7 +51,7 @@ namespace vocabversus_engine.Models
         /// <exception cref="MissingPlayerException">when user was not found in the game, possibly due to being explicitely removed</exception>
         public void DisconnectPlayer(string playerIdentifier)
         {
-            GamePlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
+            PlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
             player.isConnected = false;
         }
 
@@ -56,7 +63,7 @@ namespace vocabversus_engine.Models
         /// <exception cref="MissingPlayerException">when user was not found in the game, possibly due to being explicitely removed</exception>
         public void SetPlayerReadyState(string playerIdentifier, bool readyState)
         {
-            GamePlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
+            PlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
             player.isReady = readyState;
         }
     }

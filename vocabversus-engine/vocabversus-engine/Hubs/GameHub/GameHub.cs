@@ -16,10 +16,6 @@ namespace vocabversus_engine.Hubs.GameHub
             _gameInstanceCache = gameInstanceCache;
             _playerConnectionCache = playerConnectionCache;
         }
-        // Trigger on connecting to the Hub
-        public override async Task OnConnectedAsync()
-        {
-        }
 
         // When player connection goes out of scope, notify all relevant games
         public override async Task OnDisconnectedAsync(Exception? exception)
@@ -33,10 +29,17 @@ namespace vocabversus_engine.Hubs.GameHub
         }
 
         [HubMethodName("CheckGame")]
-        public async Task CheckGameInstanceAvailability(string gameId)
+        public async Task<CheckGameInstanceResponse> CheckGameInstanceAvailability(string gameId)
         {
             // Get initialized game instance data if available
             var gameInstance = _gameInstanceCache.Retrieve(gameId) ?? throw GameHubException.CreateIdentifierError(gameId);
+            return new CheckGameInstanceResponse
+            {
+                GameId = gameInstance.Identifier,
+                GameState = gameInstance.State,
+                PlayerCount = gameInstance.PlayerInformation.Players.Count,
+                MaxPlayerCount = gameInstance.PlayerInformation.MaxPlayers
+            };
         }
 
         [HubMethodName("Join")]
@@ -101,6 +104,13 @@ namespace vocabversus_engine.Hubs.GameHub
                 throw GameHubException.Create("Failed to set user ready state", GameHubExceptionCode.UserEditFailed);
             }
             await Clients.OthersInGroup(gameId).SendAsync("UserReady", readyState, personalIdentifier);
+
+            // If all active players are ready, start game
+            if (gameInstance.PlayerInformation.Players.Where(p => p.Value.isConnected).All(p => p.Value.isReady))
+            {
+                gameInstance.State = GameState.Starting;
+                await Clients.Group(gameId).SendAsync("GameStateChanged", GameState.Starting);
+            }
         }
     }
 }
