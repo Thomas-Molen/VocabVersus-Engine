@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 using vocabversus_engine.Models;
+using vocabversus_engine.Models.Exceptions;
 
 namespace vocabversus_engine.Utility
 {
@@ -42,27 +43,6 @@ namespace vocabversus_engine.Utility
             while (Retrieve(guidIdentifier.ToString()) is not null)
                 guidIdentifier = Guid.NewGuid();
             return guidIdentifier.ToString();
-        }
-
-        /// <inheritdoc />
-        /// <exception cref="ArgumentException">game instance could not be found</exception>
-        public void UserJoined(string userIdentifier, string username, string gameIdentifier)
-        {
-            if (!_memoryCache.TryGetValue($"{_cacheKey}_{gameIdentifier}", out GameInstance game))
-                throw new ArgumentException("no game instance found at identifier");
-            game.PlayerInformation.AddPlayer(userIdentifier, username);
-            Register(game, gameIdentifier);
-        }
-
-        /// <inheritdoc />
-        /// <exception cref="ArgumentException">game instance could not be found</exception>
-        public void UserDisconnected(string userIdentifier, string gameIdentifier)
-        {
-            if (!_memoryCache.TryGetValue($"{_cacheKey}_{gameIdentifier}", out GameInstance game))
-                throw new ArgumentException("no game instance found at identifier");
-            game.PlayerInformation.DisconnectPlayer(userIdentifier);
-            Remove(gameIdentifier);
-            Register(game, gameIdentifier);
         }
     }
 

@@ -29,6 +29,15 @@ namespace vocabversus_engine.Models
         }
 
         /// <summary>
+        /// Removes player from the container
+        /// </summary>
+        /// <param name="playerIdentifier"></param>
+        public void RemovePlayer(string playerIdentifier)
+        {
+            Players.Remove(playerIdentifier);
+        }
+
+        /// <summary>
         /// Changes player to disconnected status
         /// </summary>
         /// <param name="playerIdentifier"></param>
@@ -37,6 +46,18 @@ namespace vocabversus_engine.Models
         {
             GamePlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
             player.isConnected = false;
+        }
+
+        /// <summary>
+        /// Changes player ready status
+        /// </summary>
+        /// <param name="playerIdentifier"></param>
+        /// <param name="readyState"></param>
+        /// <exception cref="MissingPlayerException">when user was not found in the game, possibly due to being explicitely removed</exception>
+        public void SetPlayerReadyState(string playerIdentifier, bool readyState)
+        {
+            GamePlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
+            player.isReady = readyState;
         }
     }
 }

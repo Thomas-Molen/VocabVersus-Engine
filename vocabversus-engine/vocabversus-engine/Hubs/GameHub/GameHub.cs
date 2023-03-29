@@ -26,7 +26,9 @@ namespace vocabversus_engine.Hubs.GameHub
         {
             PlayerConnection? playerConnection = _playerConnectionCache.Retrieve(Context.ConnectionId);
             if (playerConnection is null) return;
-            _gameInstanceCache.UserDisconnected(playerConnection.PlayerIdentifier, playerConnection.GameInstanceIdentifier);
+            var gameInstance = _gameInstanceCache.Retrieve(playerConnection.GameInstanceIdentifier);
+            if (gameInstance is null) return;
+            gameInstance.PlayerInformation.DisconnectPlayer(playerConnection.PlayerIdentifier);
             await Clients.Group(playerConnection.GameInstanceIdentifier).SendAsync("UserLeft", Context.ConnectionId);
         }
 
@@ -45,7 +47,8 @@ namespace vocabversus_engine.Hubs.GameHub
             var personalIdentifier = Context.ConnectionId;
             try
             {
-                _gameInstanceCache.UserJoined(personalIdentifier, username, gameId);
+                gameInstance.PlayerInformation.AddPlayer(personalIdentifier, username);
+                
             }
             catch (PlayerException)
             {
@@ -54,7 +57,7 @@ namespace vocabversus_engine.Hubs.GameHub
 
             // subscribe player to the game instance via group connection
             await Groups.AddToGroupAsync(Context.ConnectionId, gameId);
-            await Clients.OthersInGroup(gameId).SendAsync("UserJoined", username, Context.ConnectionId);
+            await Clients.OthersInGroup(gameId).SendAsync("UserJoined", username, personalIdentifier);
 
             // add connection instance to the connections cache for reference when the context goes out of scope (e.g. connection disconnects)
             _playerConnectionCache.Register(new PlayerConnection
@@ -69,6 +72,35 @@ namespace vocabversus_engine.Hubs.GameHub
                 PersonalIdentifier = personalIdentifier,
                 Players = gameInstance.PlayerInformation.Players
             };
+        }
+
+        [HubMethodName("Kick")]
+        public async Task KickPlayerFromGameInstance(string gameId, string userIdentifier)
+        {
+            var gameInstance = _gameInstanceCache.Retrieve(gameId) ?? throw GameHubException.CreateIdentifierError(gameId);
+            if (gameInstance.PlayerInformation.Players.FirstOrDefault(p => p.Key == userIdentifier).Value.isConnected) throw GameHubException.Create("Active players can not be kicked", GameHubExceptionCode.ActionNotAllowed);
+            gameInstance.PlayerInformation.RemovePlayer(userIdentifier);
+            await Clients.OthersInGroup(gameId).SendAsync("UserRemoved", userIdentifier);
+        }
+
+        [HubMethodName("Ready")]
+        public async Task SetPlayerReadyState(string gameId, bool readyState)
+        {
+            var personalIdentifier = Context.ConnectionId;
+            var gameInstance = _gameInstanceCache.Retrieve(gameId) ?? throw GameHubException.CreateIdentifierError(gameId);
+            try
+            {
+                gameInstance.PlayerInformation.SetPlayerReadyState(personalIdentifier, readyState);
+            }
+            catch (GameInstanceException)
+            {
+                throw GameHubException.CreateIdentifierError(gameId);
+            }
+            catch (PlayerException)
+            {
+                throw GameHubException.Create("Failed to set user ready state", GameHubExceptionCode.UserEditFailed);
+            }
+            await Clients.OthersInGroup(gameId).SendAsync("UserReady", readyState, personalIdentifier);
         }
     }
 }

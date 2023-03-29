@@ -4,5 +4,6 @@
     {
         public string username { get; set; }
         public bool isConnected { get; set; } = true;
+        public bool isReady { get; set; } = false;
     }
 }

@@ -1,35 +1,14 @@
 ﻿namespace vocabversus_engine.Models.Exceptions
 {
     [Serializable]
-    public class PlayerException : Exception
+    public class GameInstanceException : Exception
     {
-        public PlayerException() { }
+        public GameInstanceException() { }
 
-        public PlayerException(string message)
+        public GameInstanceException(string message)
             : base(message) { }
 
-        public PlayerException(string message, Exception inner)
+        public GameInstanceException(string message, Exception inner)
             : base(message, inner) { }
-    }
-
-    [Serializable]
-    public class MaximumPlayerException : PlayerException
-    {
-        public MaximumPlayerException(string message)
-            : base(message) { }
-    }
-
-    [Serializable]
-    public class DuplicatePlayerException : PlayerException
-    {
-        public DuplicatePlayerException(string message)
-            : base(message) { }
-    }
-
-    [Serializable]
-    public class MissingPlayerException : PlayerException
-    {
-        public MissingPlayerException(string message)
-            : base(message) { }
     }
 }
