@@ -1,5 +1,6 @@
 using vocabversus_engine.Hubs;
 using vocabversus_engine.Hubs.GameHub;
+using vocabversus_engine.Services;
 using vocabversus_engine.Utility;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,6 +13,7 @@ builder.Services.AddSignalR();
 
 builder.Services.AddSingleton<IGameInstanceCache, GameInstanceCache>();
 builder.Services.AddSingleton<IPlayerConnectionCache, PlayerConnectionCache>();
+builder.Services.AddSingleton<IGameEventService, GameEventService>();
 
 var app = builder.Build();
 

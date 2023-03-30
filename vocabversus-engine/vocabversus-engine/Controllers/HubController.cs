@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using vocabversus_engine.Models;
 using vocabversus_engine.Models.Requests;
+using vocabversus_engine.Models.Responses;
 using vocabversus_engine.Utility;
 
 namespace vocabversus_engine.Controllers

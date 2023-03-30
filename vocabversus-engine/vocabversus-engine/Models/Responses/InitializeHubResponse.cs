@@ -1,4 +1,4 @@
-﻿namespace vocabversus_engine.Models.Requests
+﻿namespace vocabversus_engine.Models.Responses
 {
     public class InitializeHubResponse
     {

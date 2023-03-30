@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.SignalR;
 using vocabversus_engine.Hubs.GameHub.Responses;
 using vocabversus_engine.Models;
 using vocabversus_engine.Models.Exceptions;
+using vocabversus_engine.Models.Responses;
+using vocabversus_engine.Services;
 using vocabversus_engine.Utility;
 
 namespace vocabversus_engine.Hubs.GameHub
@@ -11,10 +13,12 @@ namespace vocabversus_engine.Hubs.GameHub
     {
         private readonly IGameInstanceCache _gameInstanceCache;
         private readonly IPlayerConnectionCache _playerConnectionCache;
-        public GameHub(IGameInstanceCache gameInstanceCache, IPlayerConnectionCache playerConnectionCache)
+        private readonly IGameEventService _gameEventService;
+        public GameHub(IGameInstanceCache gameInstanceCache, IPlayerConnectionCache playerConnectionCache, IGameEventService gameEventService)
         {
             _gameInstanceCache = gameInstanceCache;
             _playerConnectionCache = playerConnectionCache;
+            _gameEventService = gameEventService;
         }
 
         // When player connection goes out of scope, notify all relevant games
@@ -109,7 +113,16 @@ namespace vocabversus_engine.Hubs.GameHub
             if (gameInstance.PlayerInformation.Players.Where(p => p.Value.isConnected).All(p => p.Value.isReady))
             {
                 gameInstance.State = GameState.Starting;
+                var startTime = DateTimeOffset.UtcNow.AddSeconds(10).ToUnixTimeMilliseconds();
                 await Clients.Group(gameId).SendAsync("GameStateChanged", GameState.Starting);
+                await Clients.Group(gameId).SendAsync("GameStarting", startTime);
+                await Task.Delay(Convert.ToInt32(startTime - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())).ContinueWith(async (_) =>
+                {
+                    gameInstance.State = GameState.Started;
+                    await Clients.Group(gameId).SendAsync("GameStateChanged", GameState.Started);
+                    GameRound gameRound = await _gameEventService.CreateGameRound(gameId, gameInstance.WordSet);
+                    await Clients.Group(gameId).SendAsync("StartRound", new GameRoundResponse(gameRound));
+                }).Unwrap();
             }
         }
     }
