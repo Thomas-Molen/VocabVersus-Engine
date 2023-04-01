@@ -8,5 +8,7 @@ namespace vocabversus_engine.Hubs.GameHub.Responses
         public GameState GameState { get; set; }
         public int PlayerCount { get; set; }
         public int MaxPlayerCount { get; set; }
+        public string PersonalIdentifier { get; set; }
+        public bool CanReconnect { get; set; } = false;
     }
 }

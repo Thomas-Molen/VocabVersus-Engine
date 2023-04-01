@@ -7,7 +7,7 @@ namespace vocabversus_engine.Utility
     {
         protected readonly IMemoryCache _memoryCache;
         protected const string _cacheKey = "user-connection";
-        private const int _relativeExpirationTimeInMinutes = 120;
+        private const int _relativeExpirationTimeInMinutes = 30;
 
         public PlayerConnectionCache(IMemoryCache memoryCache)
         {
@@ -15,25 +15,25 @@ namespace vocabversus_engine.Utility
         }
 
         /// <inheritdoc/>
-        public PlayerConnection Register(PlayerConnection data, string identifier)
+        public PlayerConnection Register(PlayerConnection data, string connectionId)
         {
-            _memoryCache.Set($"{_cacheKey}_{identifier}", data, TimeSpan.FromMinutes(_relativeExpirationTimeInMinutes));
+            _memoryCache.Set($"{_cacheKey}_{connectionId}", data, TimeSpan.FromMinutes(_relativeExpirationTimeInMinutes));
             return data;
         }
 
         /// <inheritdoc/>
-        public PlayerConnection? Retrieve(string identifier)
+        /// <exception cref="ArgumentException">user was not found in the cache</exception>
+        public PlayerConnection Retrieve(string connectionId)
         {
-            if (!_memoryCache.TryGetValue($"{_cacheKey}_{identifier}", out PlayerConnection value))
-                return null;
+            if (!_memoryCache.TryGetValue($"{_cacheKey}_{connectionId}", out PlayerConnection value))
+                throw new ArgumentException("player was not found in the internal cache");
             return value;
         }
 
         /// <inheritdoc/>
-        public void Remove(string identifier)
+        public void Remove(string connectionId)
         {
-            _memoryCache.Remove($"{_cacheKey}_{identifier}");
+            _memoryCache.Remove($"{_cacheKey}_{connectionId}");
         }
     }
-
 }

@@ -2,12 +2,14 @@
 
 namespace vocabversus_engine.Utility
 {
-    public interface IGameInstanceCache : ICache<GameInstance>
+    public interface IPlayerConnectionCache : ICache<PlayerConnection>
     {
         /// <summary>
-        /// Creates a new unique identifier, that is not connected to any entry
+        /// Obtain the data stored at the identifier location
         /// </summary>
-        /// <returns><see cref="Guid"/> as string, used as key in the cache</returns>
-        string GetNewIdentifier();
+        /// <param name="connectionId"></param>
+        /// <returns>registered <see cref=PlayerConnection"/></returns>
+        /// <exception cref="ArgumentException">connectionId was not connected to any saved players</exception>
+        new PlayerConnection Retrieve(string connectionId);
     }
 }

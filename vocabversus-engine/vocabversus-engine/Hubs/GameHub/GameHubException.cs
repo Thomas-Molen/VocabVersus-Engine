@@ -35,14 +35,14 @@ namespace vocabversus_engine.Hubs.GameHub
 
         /// <summary>
         /// Creates HubException message:
-        /// No game instance found for given identifier: {identifier},
+        /// Given identifier was not invalid for operation identifier: {identifier},
         /// errorCode 100
         /// </summary>
         /// <param name="identifier">identifier originating the error</param>
         /// <returns></returns>
         public static HubException CreateIdentifierError(string identifier)
         {
-            return Create($"No game instance found for given identifier: {identifier}", GameHubExceptionCode.IdentifierNotFound);
+            return Create($"Given identifier was not invalid for operation identifier: {identifier}", GameHubExceptionCode.IdentifierNotFound);
         }
     }
 }

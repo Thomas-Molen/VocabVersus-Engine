@@ -25,24 +25,42 @@ namespace vocabversus_engine.Hubs.GameHub
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             PlayerConnection? playerConnection = _playerConnectionCache.Retrieve(Context.ConnectionId);
-            if (playerConnection is null) return;
+            if (playerConnection is null || playerConnection.GameInstanceIdentifier is null) return;
             var gameInstance = _gameInstanceCache.Retrieve(playerConnection.GameInstanceIdentifier);
             if (gameInstance is null) return;
             gameInstance.PlayerInformation.DisconnectPlayer(playerConnection.PlayerIdentifier);
-            await Clients.Group(playerConnection.GameInstanceIdentifier).SendAsync("UserLeft", Context.ConnectionId);
+            await Clients.Group(playerConnection.GameInstanceIdentifier).SendAsync("UserLeft", playerConnection.PlayerIdentifier);
         }
 
         [HubMethodName("CheckGame")]
-        public async Task<CheckGameInstanceResponse> CheckGameInstanceAvailability(string gameId)
+        public async Task<CheckGameInstanceResponse> CheckGameInstanceAvailability(string gameId, string? userId)
         {
             // Get initialized game instance data if available
             var gameInstance = _gameInstanceCache.Retrieve(gameId) ?? throw GameHubException.CreateIdentifierError(gameId);
+
+            // check if the game already contained the userId, as this means the user can reconnect
+            bool canReconnect = gameInstance.PlayerInformation.Players.Any(p => p.Key == userId);
+
+            // Add the player connection to internal cache for future reference
+            // this cache is used to handle player actions when connectionId is out of scope and moves game instance referencing responsibility to the server
+            // TODO: userID is currently error prone to multiple signalR hub instances running concurrently, as two players could be using the same userID
+            //       to solve this use a central database storer to store userID's that have been used, this way actions of that user could also be tracked
+            userId ??= Guid.NewGuid().ToString();
+            _playerConnectionCache.Register(new PlayerConnection
+            {
+                ConnectionId = Context.ConnectionId,
+                PlayerIdentifier = userId,
+                GameInstanceIdentifier = canReconnect ? gameInstance.Identifier : null,
+            }, Context.ConnectionId);
+
             return new CheckGameInstanceResponse
             {
                 GameId = gameInstance.Identifier,
                 GameState = gameInstance.State,
                 PlayerCount = gameInstance.PlayerInformation.Players.Count,
-                MaxPlayerCount = gameInstance.PlayerInformation.MaxPlayers
+                MaxPlayerCount = gameInstance.PlayerInformation.MaxPlayers,
+                PersonalIdentifier = userId,
+                CanReconnect = canReconnect
             };
         }
 
@@ -51,11 +69,11 @@ namespace vocabversus_engine.Hubs.GameHub
         {
             // Get initialized game instance data, if no game instance was found either no game with given Id has been initialized or the session has expired
             var gameInstance = _gameInstanceCache.Retrieve(gameId) ?? throw GameHubException.CreateIdentifierError(gameId);
-            var personalIdentifier = Context.ConnectionId;
+            var playerIdentifier = _playerConnectionCache.Retrieve(Context.ConnectionId).PlayerIdentifier;
             try
             {
-                gameInstance.PlayerInformation.AddPlayer(personalIdentifier, username);
-                
+                gameInstance.PlayerInformation.AddPlayer(playerIdentifier, username);
+
             }
             catch (PlayerException)
             {
@@ -64,64 +82,94 @@ namespace vocabversus_engine.Hubs.GameHub
 
             // subscribe player to the game instance via group connection
             await Groups.AddToGroupAsync(Context.ConnectionId, gameId);
-            await Clients.OthersInGroup(gameId).SendAsync("UserJoined", username, personalIdentifier);
+            await Clients.OthersInGroup(gameId).SendAsync("UserJoined", username, playerIdentifier);
 
             // add connection instance to the connections cache for reference when the context goes out of scope (e.g. connection disconnects)
-            _playerConnectionCache.Register(new PlayerConnection
-            {
-                Identifier = Context.ConnectionId,
-                GameInstanceIdentifier = gameId,
-                PlayerIdentifier = personalIdentifier
-            }, Context.ConnectionId);
+            // update the playerConnection to reference the connected game instance
+            var playerConnection = _playerConnectionCache.Retrieve(Context.ConnectionId);
+            playerConnection.GameInstanceIdentifier = gameInstance.Identifier;
 
             return new JoinGameInstanceResponse
             {
-                PersonalIdentifier = personalIdentifier,
                 Players = gameInstance.PlayerInformation.Players
             };
         }
 
-        [HubMethodName("Kick")]
-        public async Task KickPlayerFromGameInstance(string gameId, string userIdentifier)
+        [HubMethodName("Reconnect")]
+        public async Task<ReJoinGameInstanceResponse> JoinGameInstance()
         {
-            var gameInstance = _gameInstanceCache.Retrieve(gameId) ?? throw GameHubException.CreateIdentifierError(gameId);
+            var playerConnection = _playerConnectionCache.Retrieve(Context.ConnectionId);
+            if (playerConnection.GameInstanceIdentifier is null) throw GameHubException.Create("Could not find a game instance identifier for reconnecting user", GameHubExceptionCode.IdentifierNotFound);
+            var gameInstance = _gameInstanceCache.Retrieve(playerConnection.GameInstanceIdentifier) ?? throw GameHubException.CreateIdentifierError(playerConnection.GameInstanceIdentifier);
+
+            try
+            {
+                gameInstance.PlayerInformation.ReconnectPlayer(playerConnection.PlayerIdentifier);
+            }
+            catch (PlayerException)
+            {
+                throw GameHubException.Create("Could not reconnect user, active players might have explicitely removed this user", GameHubExceptionCode.UserEditFailed);
+            }
+
+            var reconnectingPlayer = gameInstance.PlayerInformation.Players.GetValueOrDefault(playerConnection.PlayerIdentifier) ?? throw GameHubException.CreateIdentifierError("No player information was found for reconnecting player identifier");
+
+            // subscribe player to the game instance via group connection
+            await Groups.AddToGroupAsync(Context.ConnectionId, gameInstance.Identifier);
+            await Clients.OthersInGroup(gameInstance.Identifier).SendAsync("UserReconnected", playerConnection.PlayerIdentifier);
+
+            return new ReJoinGameInstanceResponse
+            {
+                Players = gameInstance.PlayerInformation.Players,
+                Username = reconnectingPlayer.username,
+            };
+        }
+
+        [HubMethodName("Kick")]
+        public async Task KickPlayerFromGameInstance(string userIdentifier)
+        {
+            var playerConnection = _playerConnectionCache.Retrieve(Context.ConnectionId);
+            if (playerConnection.GameInstanceIdentifier is null) throw GameHubException.Create("Could not find a game instance identifier for reconnecting user", GameHubExceptionCode.IdentifierNotFound);
+
+            var gameInstance = _gameInstanceCache.Retrieve(playerConnection.GameInstanceIdentifier) ?? throw GameHubException.CreateIdentifierError(playerConnection.GameInstanceIdentifier);
             if (gameInstance.PlayerInformation.Players.FirstOrDefault(p => p.Key == userIdentifier).Value.isConnected) throw GameHubException.Create("Active players can not be kicked", GameHubExceptionCode.ActionNotAllowed);
             gameInstance.PlayerInformation.RemovePlayer(userIdentifier);
-            await Clients.OthersInGroup(gameId).SendAsync("UserRemoved", userIdentifier);
+
+            await Clients.OthersInGroup(playerConnection.GameInstanceIdentifier).SendAsync("UserRemoved", userIdentifier);
         }
 
         [HubMethodName("Ready")]
-        public async Task SetPlayerReadyState(string gameId, bool readyState)
+        public async Task SetPlayerReadyState(bool readyState)
         {
-            var personalIdentifier = Context.ConnectionId;
-            var gameInstance = _gameInstanceCache.Retrieve(gameId) ?? throw GameHubException.CreateIdentifierError(gameId);
+            var playerConnection = _playerConnectionCache.Retrieve(Context.ConnectionId);
+            if (playerConnection.GameInstanceIdentifier is null) throw GameHubException.Create("Could not find a game instance identifier for reconnecting user", GameHubExceptionCode.IdentifierNotFound);
+            var gameInstance = _gameInstanceCache.Retrieve(playerConnection.GameInstanceIdentifier) ?? throw GameHubException.CreateIdentifierError(playerConnection.GameInstanceIdentifier);
             try
             {
-                gameInstance.PlayerInformation.SetPlayerReadyState(personalIdentifier, readyState);
+                gameInstance.PlayerInformation.SetPlayerReadyState(playerConnection.PlayerIdentifier, readyState);
             }
             catch (GameInstanceException)
             {
-                throw GameHubException.CreateIdentifierError(gameId);
+                throw GameHubException.CreateIdentifierError(playerConnection.GameInstanceIdentifier);
             }
             catch (PlayerException)
             {
                 throw GameHubException.Create("Failed to set user ready state", GameHubExceptionCode.UserEditFailed);
             }
-            await Clients.OthersInGroup(gameId).SendAsync("UserReady", readyState, personalIdentifier);
+            await Clients.OthersInGroup(playerConnection.GameInstanceIdentifier).SendAsync("UserReady", readyState, playerConnection.PlayerIdentifier);
 
             // If all active players are ready, start game
             if (gameInstance.PlayerInformation.Players.Where(p => p.Value.isConnected).All(p => p.Value.isReady))
             {
                 gameInstance.State = GameState.Starting;
                 var startTime = DateTimeOffset.UtcNow.AddSeconds(10).ToUnixTimeMilliseconds();
-                await Clients.Group(gameId).SendAsync("GameStateChanged", GameState.Starting);
-                await Clients.Group(gameId).SendAsync("GameStarting", startTime);
+                await Clients.Group(playerConnection.GameInstanceIdentifier).SendAsync("GameStateChanged", GameState.Starting);
+                await Clients.Group(playerConnection.GameInstanceIdentifier).SendAsync("GameStarting", startTime);
                 await Task.Delay(Convert.ToInt32(startTime - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())).ContinueWith(async (_) =>
                 {
                     gameInstance.State = GameState.Started;
-                    await Clients.Group(gameId).SendAsync("GameStateChanged", GameState.Started);
-                    GameRound gameRound = await _gameEventService.CreateGameRound(gameId, gameInstance.WordSet);
-                    await Clients.Group(gameId).SendAsync("StartRound", new GameRoundResponse(gameRound));
+                    await Clients.Group(playerConnection.GameInstanceIdentifier).SendAsync("GameStateChanged", GameState.Started);
+                    GameRound gameRound = await _gameEventService.CreateGameRound(playerConnection.GameInstanceIdentifier, gameInstance.WordSet);
+                    await Clients.Group(playerConnection.GameInstanceIdentifier).SendAsync("StartRound", new GameRoundResponse(gameRound));
                 }).Unwrap();
             }
         }

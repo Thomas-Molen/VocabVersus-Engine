@@ -44,6 +44,12 @@ namespace vocabversus_engine.Models
             Players.Remove(playerIdentifier);
         }
 
+        private void SetPlayerConnection(string playerIdentifier, bool isConnected)
+        {
+            PlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
+            player.isConnected = isConnected;
+        }
+
         /// <summary>
         /// Changes player to disconnected status
         /// </summary>
@@ -51,8 +57,17 @@ namespace vocabversus_engine.Models
         /// <exception cref="MissingPlayerException">when user was not found in the game, possibly due to being explicitely removed</exception>
         public void DisconnectPlayer(string playerIdentifier)
         {
-            PlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
-            player.isConnected = false;
+            SetPlayerConnection(playerIdentifier, false);
+        }
+
+        /// <summary>
+        /// Changes player to connected status
+        /// </summary>
+        /// <param name="playerIdentifier"></param>
+        /// <exception cref="MissingPlayerException">when user was not found in the game, possibly due to being explicitely removed</exception>
+        public void ReconnectPlayer(string playerIdentifier)
+        {
+            SetPlayerConnection(playerIdentifier, true);
         }
 
         /// <summary>
