@@ -4,9 +4,10 @@ namespace vocabversus_engine.Models
 {
     public class PlayerRecord
     {
-        public string username { get; set; }
+        public string username { get; set; } = "username";
         public bool isConnected { get; set; } = true;
         public bool isReady { get; set; } = false;
+        public int points { get; set; } = 0;
     }
 
     public class PlayerContainer
@@ -20,6 +21,11 @@ namespace vocabversus_engine.Models
         /// List of all players in container, Key = playerIdentifier
         /// </summary>
         public Dictionary<string, PlayerRecord> Players { get; private set; } = new();
+
+        public PlayerContainer(int maxPLayers)
+        {
+            MaxPlayers = maxPLayers;
+        }
 
         /// <summary>
         /// Adds player to the container
@@ -80,6 +86,30 @@ namespace vocabversus_engine.Models
         {
             PlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
             player.isReady = readyState;
+        }
+
+        /// <summary>
+        /// Gives player points
+        /// </summary>
+        /// <param name="playerIdentifier"></param>
+        /// <param name="points"></param>
+        /// <exception cref="MissingPlayerException">when user was not found in the game, possibly due to being explicitely removed</exception>
+        public void GivePlayerPoints(string playerIdentifier, int points)
+        {
+            PlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
+            player.points += points;
+        }
+
+        /// <summary>
+        /// Removes player points
+        /// </summary>
+        /// <param name="playerIdentifier"></param>
+        /// <param name="points"></param>
+        /// <exception cref="MissingPlayerException">when user was not found in the game, possibly due to being explicitely removed</exception>
+        public void RemovePlayerPoints(string playerIdentifier, int points)
+        {
+            PlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
+            player.points -= points;
         }
     }
 }

@@ -7,7 +7,7 @@ namespace vocabversus_engine.Utility
     {
         protected readonly IMemoryCache _memoryCache;
         protected const string _cacheKey = "user-connection";
-        private const int _relativeExpirationTimeInMinutes = 30;
+        private const int _relativeExpirationTimeInMinutes = 120;
 
         public PlayerConnectionCache(IMemoryCache memoryCache)
         {
