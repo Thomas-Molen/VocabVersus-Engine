@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using System;
 using vocabversus_engine.Hubs.GameHub.Responses;
 using vocabversus_engine.Models;
 using vocabversus_engine.Models.Exceptions;
 using vocabversus_engine.Models.Responses;
+using vocabversus_engine.Services;
 using vocabversus_engine.Utility;
 
 namespace vocabversus_engine.Hubs.GameHub
@@ -12,10 +14,12 @@ namespace vocabversus_engine.Hubs.GameHub
     {
         private readonly IGameInstanceCache _gameInstanceCache;
         private readonly IPlayerConnectionCache _playerConnectionCache;
-        public GameHub(IGameInstanceCache gameInstanceCache, IPlayerConnectionCache playerConnectionCache)
+        private readonly IWordSetService _wordSetService;
+        public GameHub(IGameInstanceCache gameInstanceCache, IPlayerConnectionCache playerConnectionCache, IWordSetService wordSetService)
         {
             _gameInstanceCache = gameInstanceCache;
             _playerConnectionCache = playerConnectionCache;
+            _wordSetService = wordSetService;
         }
 
         // When player connection goes out of scope, notify all relevant games
@@ -35,11 +39,11 @@ namespace vocabversus_engine.Hubs.GameHub
             // Get initialized game instance data if available
             var gameInstance = _gameInstanceCache.Retrieve(gameId) ?? throw GameHubException.CreateIdentifierError(gameId);
 
-            // check if the game already contained the userId, as this means the user can reconnect
-            bool canReconnect = gameInstance.PlayerInformation.Players.Any(p => p.Key == userId && !p.Value.isConnected);
+            // Check if the game already contained the userId, as this means the user can reconnect
+            bool canReconnect = gameInstance.PlayerInformation.Players.Any(p => p.Key == userId && !p.Value.IsConnected);
 
             // Add the player connection to internal cache for future reference
-            // this cache is used to handle player actions when connectionId is out of scope and moves game instance referencing responsibility to the server
+            // This cache is used to handle player actions when connectionId is out of scope and moves game instance referencing responsibility to the server
             // TODO: userID is currently error prone to multiple signalR hub instances running concurrently, as two players could be using the same userID
             //       to solve this use a central database storer to store userID's that have been used, this way actions of that user could also be tracked
             userId ??= Guid.NewGuid().ToString();
@@ -77,12 +81,12 @@ namespace vocabversus_engine.Hubs.GameHub
                 throw GameHubException.Create("Could not add user, either the game is full or user has already joined game instance", GameHubExceptionCode.UserAddFailed);
             }
 
-            // subscribe player to the game instance via group connection
+            // Subscribe player to the game instance via group connection
             await Groups.AddToGroupAsync(Context.ConnectionId, gameId);
             await Clients.OthersInGroup(gameId).SendAsync("UserJoined", username, playerIdentifier);
 
-            // add connection instance to the connections cache for reference when the context goes out of scope (e.g. connection disconnects)
-            // update the playerConnection to reference the connected game instance
+            // Add connection instance to the connections cache for reference when the context goes out of scope (e.g. connection disconnects)
+            // Update the playerConnection to reference the connected game instance
             var playerConnection = _playerConnectionCache.Retrieve(Context.ConnectionId);
             playerConnection.GameInstanceIdentifier = gameInstance.Identifier;
 
@@ -115,7 +119,7 @@ namespace vocabversus_engine.Hubs.GameHub
 
             var reconnectingPlayer = gameInstance.PlayerInformation.Players.GetValueOrDefault(playerConnection.PlayerIdentifier) ?? throw GameHubException.CreateIdentifierError("No player information was found for reconnecting player identifier");
 
-            // subscribe player to the game instance via group connection
+            // Subscribe player to the game instance via group connection
             await Groups.AddToGroupAsync(Context.ConnectionId, gameInstance.Identifier);
             await Clients.OthersInGroup(gameInstance.Identifier).SendAsync("UserReconnected", playerConnection.PlayerIdentifier);
 
@@ -127,7 +131,7 @@ namespace vocabversus_engine.Hubs.GameHub
                     RequiredCharacters = r.RequiredCharacters,
                     IsCompletedByPlayer = r.PlayersCompleted.Any(p => p == playerConnection.PlayerIdentifier)
                 }).ToList(),
-                Username = reconnectingPlayer.username,
+                Username = reconnectingPlayer.Username,
             };
         }
 
@@ -138,7 +142,7 @@ namespace vocabversus_engine.Hubs.GameHub
             if (playerConnection.GameInstanceIdentifier is null) throw GameHubException.Create("Could not find a game instance identifier for reconnecting user", GameHubExceptionCode.IdentifierNotFound);
 
             var gameInstance = _gameInstanceCache.Retrieve(playerConnection.GameInstanceIdentifier) ?? throw GameHubException.CreateIdentifierError(playerConnection.GameInstanceIdentifier);
-            if (gameInstance.PlayerInformation.Players.FirstOrDefault(p => p.Key == userIdentifier).Value.isConnected) throw GameHubException.Create("Active players can not be kicked", GameHubExceptionCode.ActionNotAllowed);
+            if (gameInstance.PlayerInformation.Players.FirstOrDefault(p => p.Key == userIdentifier).Value.IsConnected) throw GameHubException.Create("Active players can not be kicked", GameHubExceptionCode.ActionNotAllowed);
             gameInstance.PlayerInformation.RemovePlayer(userIdentifier);
 
             await Clients.OthersInGroup(gameInstance.Identifier).SendAsync("UserRemoved", userIdentifier);
@@ -165,7 +169,7 @@ namespace vocabversus_engine.Hubs.GameHub
             await Clients.OthersInGroup(playerConnection.GameInstanceIdentifier).SendAsync("UserReady", readyState, playerConnection.PlayerIdentifier);
 
             // If all active players are ready, start game
-            if (gameInstance.PlayerInformation.Players.Where(p => p.Value.isConnected).All(p => p.Value.isReady))
+            if (gameInstance.PlayerInformation.Players.Where(p => p.Value.IsConnected).All(p => p.Value.IsReady))
             {
                 gameInstance.State = GameState.Starting;
                 var startTime = DateTimeOffset.UtcNow.AddSeconds(5).ToUnixTimeMilliseconds();
@@ -195,53 +199,77 @@ namespace vocabversus_engine.Hubs.GameHub
         [HubMethodName("Submit")]
         public async Task CheckSubmittedWord(string word)
         {
+            // Get player data
             var playerConnection = _playerConnectionCache.Retrieve(Context.ConnectionId);
-            if (playerConnection.GameInstanceIdentifier is null) throw GameHubException.Create("Could not find a game instance identifier for reconnecting user", GameHubExceptionCode.IdentifierNotFound);
+            if (playerConnection.GameInstanceIdentifier is null) throw GameHubException.Create("Could not find a game instance identifier for player", GameHubExceptionCode.IdentifierNotFound);
 
+            // Find game and round information
             var gameInstance = _gameInstanceCache.Retrieve(playerConnection.GameInstanceIdentifier) ?? throw GameHubException.CreateIdentifierError(playerConnection.GameInstanceIdentifier);
             var round = gameInstance.RoundInformation.Rounds.LastOrDefault() ?? throw GameHubException.Create("No round is active to submit words for", GameHubExceptionCode.ActionNotAllowed);
+            // Do not allow players who have already completed a round to re-submit
             if (round.PlayersCompleted.Any(p => p == playerConnection.PlayerIdentifier)) throw GameHubException.Create("Player has already completed given round", GameHubExceptionCode.ActionNotAllowed);
 
-            bool wordContainsCharacters = round.RequiredCharacters.All(c => word.Contains(c, StringComparison.OrdinalIgnoreCase));
-
-            bool wordIsValid = false;
-            if (wordContainsCharacters)
+            // Check if submitted word contains all required characters
+            char[] wordChars = word.ToCharArray();
+            if (!round.RequiredCharacters.All(c =>
             {
-                // TODO: Add logical check if the given word is an actual word
-                wordIsValid = true;
+                // If char is not in available chars of word, return false
+                if (!wordChars.Contains(c)) return false;
+                // Remove found char from available chars of word
+                wordChars = wordChars.Where((v, i) => i != Array.IndexOf(wordChars, c)).ToArray();
+                return true;
+            }))
+            {
+                // If submittion does not contain all required characters, submittion will be incorrect
+                await SubmittionIncorrect();
+                return;
             }
+
+            // Evaluate submitted word
+            var evaluation = await _wordSetService.EvaluateWord(gameInstance.RoundInformation.WordSetId, word, gameInstance.Settings.IncorrectCharsMargin);
+            if (!evaluation.IsSuccess)
+            {
+                // If evaluation was not a success, submittion is incorrect
+                await SubmittionIncorrect();
+                return;
+            }
+
             // if user has a valid submition, add the player to the list of completed players, and give points
-            if (wordContainsCharacters && wordIsValid)
+            // TODO: add logic for calculating and given points to user
+            int pointsToGive = 10;
+            int previousPlayersCompleted = round.PlayersCompleted.Count;
+            pointsToGive -= previousPlayersCompleted;
+            if (pointsToGive < 1) pointsToGive = 1;
+
+            gameInstance.PlayerInformation.GivePlayerPoints(playerConnection.PlayerIdentifier, pointsToGive);
+            await Clients.Group(gameInstance.Identifier).SendAsync("AddPoints", playerConnection.PlayerIdentifier, pointsToGive);
+            round.PlayersCompleted.Add(playerConnection.PlayerIdentifier);
+
+            // Return result to user, do this via a client call so that other pre processes such as new round logic can be done in current process
+            await Clients.Caller.SendAsync("SubmitResult", new CheckWordResponse
             {
-                // TODO: add logic for calculating and given points to user
-                int pointsToGive = 10;
-                int previousPlayersCompleted = round.PlayersCompleted.Count;
-                pointsToGive -= previousPlayersCompleted;
-                if (pointsToGive < 1) pointsToGive = 1;
+                isCorrect = true,
+            });
 
-                gameInstance.PlayerInformation.GivePlayerPoints(playerConnection.PlayerIdentifier, pointsToGive);
-                await Clients.Group(gameInstance.Identifier).SendAsync("AddPoints", playerConnection.PlayerIdentifier, pointsToGive);
-                round.PlayersCompleted.Add(playerConnection.PlayerIdentifier);
+            // If first person to complete round, start new round process
+            if (previousPlayersCompleted == 0)
+            {
+                var endTime = DateTimeOffset.UtcNow.AddSeconds(gameInstance.Settings.RoundEndDelay).ToUnixTimeMilliseconds();
+                await Clients.Group(playerConnection.GameInstanceIdentifier).SendAsync("RoundEnding", endTime);
 
-                // return result to user, do this via a client call so that other pre processes such as new round logic can be done in current process
-                await Clients.Caller.SendAsync("SubmitResult", new CheckWordResponse
+                await Task.Delay(Convert.ToInt32(endTime - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())).ContinueWith(async (_) =>
                 {
-                    isCorrect = wordContainsCharacters && wordIsValid,
-                });
-
-                // if first person to complete round, start new round process
-                if (previousPlayersCompleted == 0)
-                {
-                    var endTime = DateTimeOffset.UtcNow.AddSeconds(10).ToUnixTimeMilliseconds();
-                    await Clients.Group(playerConnection.GameInstanceIdentifier).SendAsync("RoundEnding", endTime);
-
-                    await Task.Delay(Convert.ToInt32(endTime - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())).ContinueWith(async (_) =>
-                    {
-                        await StartGameRound(gameInstance.Identifier);
-                    }).Unwrap();
-                }
-
+                    await StartGameRound(gameInstance.Identifier);
+                }).Unwrap();
             }
+        }
+
+        private async Task SubmittionIncorrect()
+        {
+            await Clients.Caller.SendAsync("SubmitResult", new CheckWordResponse
+            {
+                isCorrect = false,
+            });
         }
     }
 }

@@ -2,6 +2,9 @@
 {
     public class InitializeHubResponse
     {
-        public string GameId { get; set; }
+        /// <summary>
+        /// Reference ID to initialized game instance
+        /// </summary>
+        public string GameId { get; set; } = Guid.Empty.ToString();
     }
 }

@@ -4,10 +4,22 @@ namespace vocabversus_engine.Models
 {
     public class PlayerRecord
     {
-        public string username { get; set; } = "username";
-        public bool isConnected { get; set; } = true;
-        public bool isReady { get; set; } = false;
-        public int points { get; set; } = 0;
+        /// <summary>
+        /// Display name of user
+        /// </summary>
+        public string Username { get; set; } = "username";
+        /// <summary>
+        /// Connection status of user
+        /// </summary>
+        public bool IsConnected { get; set; } = true;
+        /// <summary>
+        /// Gameplay status of user
+        /// </summary>
+        public bool IsReady { get; set; } = false;
+        /// <summary>
+        /// Total score points of user
+        /// </summary>
+        public int Points { get; set; } = 0;
     }
 
     public class PlayerContainer
@@ -37,7 +49,7 @@ namespace vocabversus_engine.Models
         public void AddPlayer(string playerIdentifier, string username)
         {
             if (MaxPlayers == Players.Count) throw new MaximumPlayerException("player container already full");
-            bool addPlayerResult = Players.TryAdd(playerIdentifier, new PlayerRecord { username = username});
+            bool addPlayerResult = Players.TryAdd(playerIdentifier, new PlayerRecord { Username = username});
             if (!addPlayerResult) throw new DuplicatePlayerException("player already exists in the container");
         }
 
@@ -53,7 +65,7 @@ namespace vocabversus_engine.Models
         private void SetPlayerConnection(string playerIdentifier, bool isConnected)
         {
             PlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
-            player.isConnected = isConnected;
+            player.IsConnected = isConnected;
         }
 
         /// <summary>
@@ -85,7 +97,7 @@ namespace vocabversus_engine.Models
         public void SetPlayerReadyState(string playerIdentifier, bool readyState)
         {
             PlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
-            player.isReady = readyState;
+            player.IsReady = readyState;
         }
 
         /// <summary>
@@ -97,7 +109,7 @@ namespace vocabversus_engine.Models
         public void GivePlayerPoints(string playerIdentifier, int points)
         {
             PlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
-            player.points += points;
+            player.Points += points;
         }
 
         /// <summary>
@@ -109,7 +121,7 @@ namespace vocabversus_engine.Models
         public void RemovePlayerPoints(string playerIdentifier, int points)
         {
             PlayerRecord player = Players.GetValueOrDefault(playerIdentifier) ?? throw new MissingPlayerException("player could not be found");
-            player.points -= points;
+            player.Points -= points;
         }
     }
 }
