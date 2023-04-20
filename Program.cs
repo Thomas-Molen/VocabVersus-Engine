@@ -30,7 +30,7 @@ var app = builder.Build();
 
 app.UseCors(builder =>
 {
-    builder.WithOrigins("https://vocabversus.azurewebsites.net")
+    builder.AllowAnyOrigin()
         .AllowAnyHeader()
         .AllowAnyMethod()
         .SetIsOriginAllowed((host) => true)
