@@ -210,7 +210,7 @@ namespace vocabversus_engine.Hubs.GameHub
             if (round.PlayersCompleted.Any(p => p == playerConnection.PlayerIdentifier)) throw GameHubException.Create("Player has already completed given round", GameHubExceptionCode.ActionNotAllowed);
 
             // Check if submitted word contains all required characters
-            char[] wordChars = word.ToCharArray();
+            char[] wordChars = word.ToLower().ToCharArray();
             if (!round.RequiredCharacters.All(c =>
             {
                 // If char is not in available chars of word, return false

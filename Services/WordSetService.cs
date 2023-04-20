@@ -43,7 +43,7 @@ namespace vocabversus_engine.Services
         /// <exception cref="ArgumentException">Failed to obtain valid evaluation data from word set evaluator</exception>
         public async Task<WordEvaluationData> EvaluateWord(Guid wordSetId, string word, int incorrectMargin = 0)
         {
-            var evaluateResponse = await _httpClient.GetAsync($"WordSet/evaluate?wordSetId={wordSetId}&word={word.ToLower()}&fuzzyChars={incorrectMargin}");
+            var evaluateResponse = await _httpClient.GetAsync($"WordSet/evaluate?wordSetId={wordSetId}&word={word}&fuzzyChars={incorrectMargin}");
             if (!evaluateResponse.IsSuccessStatusCode) throw new ArgumentException($"Could not evaluate word against word set: {wordSetId}");
             var evaluation = await evaluateResponse.Content.ReadFromJsonAsync<EvaluateWordResponse>() ?? throw new ArgumentException("evaluation succeeded but result was null");
 
