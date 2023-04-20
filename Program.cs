@@ -33,8 +33,8 @@ app.UseCors(builder =>
     builder.AllowAnyOrigin()
         .AllowAnyHeader()
         .AllowAnyMethod()
-        .SetIsOriginAllowed((host) => true)
-        .AllowCredentials();
+        .SetIsOriginAllowed((host) => true);
+        //.AllowCredentials();
 });
 
 app.UseHttpsRedirection();
