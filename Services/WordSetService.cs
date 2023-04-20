@@ -6,10 +6,12 @@ namespace vocabversus_engine.Services
     public class WordSetService : IWordSetService
     {
         private readonly HttpClient _httpClient;
+        private readonly ILogger<WordSetService> _logger;
 
-        public WordSetService(HttpClient httpCLient)
+        public WordSetService(HttpClient httpCLient, ILogger<WordSetService> logger)
         {
             _httpClient = httpCLient;
+            _logger = logger;
         }
 
         /// <inheritdoc/>
@@ -17,16 +19,24 @@ namespace vocabversus_engine.Services
         public async Task<WordSet> GetWordSet(Guid wordSetId)
         {
             // get word set data with ID, Name and Words list
-            var wordSetResponse = await _httpClient.GetAsync($"?wordSetId={wordSetId}&fields=Id&fields=Name&fields=Words");
-            if (!wordSetResponse.IsSuccessStatusCode) throw new ArgumentException($"Could not obtain word set data from evaluator with ID: {wordSetId}");
-            var wordSet = await wordSetResponse.Content.ReadFromJsonAsync<GetWordSetResponse>() ?? throw new ArgumentException("Word set was obtained but value was null");
-
-            return new WordSet
+            try
             {
-                Id = wordSet.Id,
-                Name = wordSet.Name,
-                Words = wordSet.Words
-            };
+                var wordSetResponse = await _httpClient.GetAsync($"?wordSetId={wordSetId}&fields=Id&fields=Name&fields=Words");
+                if (!wordSetResponse.IsSuccessStatusCode) throw new ArgumentException($"Could not obtain word set data from evaluator with ID: {wordSetId}");
+                var wordSet = await wordSetResponse.Content.ReadFromJsonAsync<GetWordSetResponse>() ?? throw new ArgumentException("Word set was obtained but value was null");
+
+                return new WordSet
+                {
+                    Id = wordSet.Id,
+                    Name = wordSet.Name,
+                    Words = wordSet.Words
+                };
+            }
+            catch (HttpRequestException)
+            {
+                _logger.LogWarning("Connection with word set evaluator failed when attempting to get word set data");
+                throw new ArgumentException($"Could not obtain word set data from evaluator with ID: {wordSetId}");
+            }
         }
 
         /// <inheritdoc/>
