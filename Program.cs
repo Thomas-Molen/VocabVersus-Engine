@@ -22,7 +22,7 @@ builder.Services.Configure<WordSetEvaluatorSettings>(wordSetEvaluatorSettings);
 // Add Http clients to DI
 builder.Services.AddHttpClient<IWordSetService, WordSetService>(client =>
 {
-    client.BaseAddress = new Uri($"{wordSetEvaluatorSettings.Get<WordSetEvaluatorSettings>().BaseUrl}/api/WordSet");
+    client.BaseAddress = new Uri($"{wordSetEvaluatorSettings.Get<WordSetEvaluatorSettings>()?.BaseUrl ?? throw new ArgumentException("No BaseUrl for WordSetEvaluator was found")}/api/WordSet");
 });
 
 
