@@ -1,6 +1,7 @@
 using vocabversus_engine.Hubs.GameHub;
 using vocabversus_engine.Services;
 using vocabversus_engine.Utility;
+using vocabversus_engine.Utility.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,11 +15,16 @@ builder.Services.AddSingleton<IGameInstanceCache, GameInstanceCache>();
 builder.Services.AddSingleton<IPlayerConnectionCache, PlayerConnectionCache>();
 builder.Services.AddScoped<IWordSetService, WordSetService>();
 
+// Add configuration settings
+var wordSetEvaluatorSettings = builder.Configuration.GetSection(WordSetEvaluatorSettings.SectionName);
+builder.Services.Configure<WordSetEvaluatorSettings>(wordSetEvaluatorSettings);
+
 // Add Http clients to DI
 builder.Services.AddHttpClient<IWordSetService, WordSetService>(client =>
 {
-    client.BaseAddress = new Uri("https://localhost:7124/api/WordSet");
+    client.BaseAddress = new Uri($"{wordSetEvaluatorSettings.Get<WordSetEvaluatorSettings>().BaseUrl}/api/WordSet");
 });
+
 
 var app = builder.Build();
 
