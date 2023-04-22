@@ -1,4 +1,4 @@
-name: build-docker-image
+name: build-and-deploy-docker-image
 
 # Run workflow on push to main or manual trigger
 on:
@@ -13,20 +13,34 @@ jobs:
         # Get git functionality
       - name: checkout
         uses: actions/checkout@v3
+
         # Setup docker hub credentials
-      - name: docker-hub
+      - name: authenticate docker hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
         # Setup extended docker CLI with buildx plugin
-      - name: docker-buildx
+      - name: setup docker buildx
         uses: docker/setup-buildx-action@v2
-        # build docker image and push it to docker hub repository
-      - name: build docker image to docker hub repository
+
+        # Build docker image and push it to docker hub repository
+      - name: build and push docker image to docker hub repository
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/vocabversus-engine:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/vocabversus-engine:${{ github.sha }}
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      # Deploy docker hub image to azure with publish auth
+      - name: deploy to azure
+        uses: azure/webapps-deploy@v2
+        with:
+            app-name: 'vocabversus'
+            publish-profile: ${{ secrets.AZURE_APPSERVICE_PUBLISHPROFILE }}
+            images: 'index.docker.io/${{ secrets.DOCKERHUB_USERNAME }}/vocabversus-engine:${{ github.sha }}'
