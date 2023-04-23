@@ -7,11 +7,31 @@ on:
   workflow_dispatch:
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./vocabversus-engine.tests
+    steps:
+        # checkout repository to runner
+      - name: checkout repository
+        uses: actions/checkout@v3
+        
+        # add the dotnet SDK
+      - name: setup dotnet test environment
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 6.0
+
+        # run all tests, this will also implicitely run dotnet restore and build
+      - name: run tests
+        run: dotnet test --verbosity normal
   build:
     runs-on: ubuntu-latest
+    needs: test
     steps: 
-        # Get git functionality
-      - name: checkout
+        # checkout repository to runner
+      - name: checkout repository
         uses: actions/checkout@v3
 
         # Setup docker hub credentials
@@ -35,9 +55,9 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/vocabversus-engine:${{ github.sha }}
   deploy:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [test, build]
     steps:
-      # Deploy docker hub image to azure with publish auth
+        # Deploy docker hub image to azure with publish auth
       - name: deploy to azure
         uses: azure/webapps-deploy@v2
         with:
