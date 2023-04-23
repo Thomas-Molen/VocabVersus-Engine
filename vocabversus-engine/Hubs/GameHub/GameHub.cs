@@ -255,7 +255,8 @@ namespace vocabversus_engine.Hubs.GameHub
             if (previousPlayersCompleted == 0)
             {
                 var endTime = DateTimeOffset.UtcNow.AddSeconds(gameInstance.Settings.RoundEndDelay).ToUnixTimeMilliseconds();
-                await Clients.Group(playerConnection.GameInstanceIdentifier).SendAsync("RoundEnding", endTime);
+                // Send round ending indicator with 250 milliseconds (0.25 seconds) margin to account for general communication and processing delay
+                await Clients.Group(playerConnection.GameInstanceIdentifier).SendAsync("RoundEnding", endTime+250);
 
                 await Task.Delay(Convert.ToInt32(endTime - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())).ContinueWith(async (_) =>
                 {
