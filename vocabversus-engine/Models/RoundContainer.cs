@@ -40,7 +40,7 @@ namespace vocabversus_engine.Models
         public GameRound NewRound()
         {
             // Get a new random list of characters based on word set
-            char[] requiredCharacters = _wordSet.GetRandomWordChars(_random.Next((int)_minWordChars, (int)_maxWordChars));
+            char[] requiredCharacters = _wordSet.GetRandomWordChars(_random.Next((int)_minWordChars, (int)_maxWordChars+1));
 
             GameRound newRound = new GameRound
             {
