@@ -14,5 +14,9 @@
         /// Gameplay settings
         /// </summary>
         public GameInstanceSettings Settings { get; set; } = new();
+        /// <summary>
+        /// Optional password protection
+        /// </summary>
+        public string? Password { get; set; } = null;
     }
 }

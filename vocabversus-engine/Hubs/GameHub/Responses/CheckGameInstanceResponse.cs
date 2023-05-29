@@ -10,5 +10,6 @@ namespace vocabversus_engine.Hubs.GameHub.Responses
         public int MaxPlayerCount { get; set; }
         public string PersonalIdentifier { get; set; }
         public bool CanReconnect { get; set; } = false;
+        public bool IsPasswordProtected { get; set; }
     }
 }

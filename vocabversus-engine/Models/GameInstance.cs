@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc.ModelBinding;
+using vocabversus_engine.Utility;
 
 namespace vocabversus_engine.Models
 {
@@ -30,12 +31,26 @@ namespace vocabversus_engine.Models
         public int IncorrectCharsMargin { get; set; } = 0;
     }
 
+    public class Password
+    {
+        public string HashedPassword { get; set; } = "";
+        public byte[] Salt { get; set; } = Array.Empty<byte>();
+    }
+
     public class GameInstance
     {
         /// <summary>
         /// Internal ID of game instance
         /// </summary>
         public readonly string Identifier;
+        /// <summary>
+        /// Optional password protection
+        /// </summary>
+        private Password? password = null;
+        /// <summary>
+        /// If game instance is password protected
+        /// </summary>
+        public bool IsPasswordProtected => password is not null;
         /// <summary>
         /// Gameplay settings
         /// </summary>
@@ -53,13 +68,28 @@ namespace vocabversus_engine.Models
         /// </summary>
         public GameState State { get; set; }
 
-        public GameInstance(string identifier, GameInstanceSettings settings, WordSet wordSet, int maxPlayers)
+        public GameInstance(string identifier, GameInstanceSettings settings, WordSet wordSet, int maxPlayers, string? password = null)
         {
             Identifier = identifier;
             Settings = settings;
             PlayerInformation = new PlayerContainer(maxPlayers);
             State = GameState.Lobby;
             RoundInformation = new RoundContainer(wordSet, settings.MinRequiredChars, settings.MaxRequiredChars);
+            
+            if (password is not null)
+            {
+                this.password = new Password
+                {
+                    HashedPassword = PasswordGenerator.GeneratePassword(password, out byte[] salt),
+                    Salt = salt
+                };
+            }
+        }
+
+        public bool VerifyPassword(string password)
+        {
+            if (!IsPasswordProtected || this.password is null) return true;
+            return PasswordGenerator.VerifyPassword(this.password.HashedPassword, this.password.Salt, password);
         }
     }
 }

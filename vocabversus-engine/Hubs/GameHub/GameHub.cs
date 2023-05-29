@@ -34,7 +34,7 @@ namespace vocabversus_engine.Hubs.GameHub
         }
 
         [HubMethodName("CheckGame")]
-        public async Task<CheckGameInstanceResponse> CheckGameInstanceAvailability(string gameId, string? userId)
+        public async ValueTask<CheckGameInstanceResponse> CheckGameInstanceAvailability(string gameId, string? userId)
         {
             // Get initialized game instance data if available
             var gameInstance = _gameInstanceCache.Retrieve(gameId) ?? throw GameHubException.CreateIdentifierError(gameId);
@@ -61,15 +61,20 @@ namespace vocabversus_engine.Hubs.GameHub
                 PlayerCount = gameInstance.PlayerInformation.Players.Count,
                 MaxPlayerCount = gameInstance.PlayerInformation.MaxPlayers,
                 PersonalIdentifier = userId,
-                CanReconnect = canReconnect
+                CanReconnect = canReconnect,
+                IsPasswordProtected = gameInstance.IsPasswordProtected,
             };
         }
 
         [HubMethodName("Join")]
-        public async Task<JoinGameInstanceResponse> JoinGameInstance(string gameId, string username)
+        public async Task<JoinGameInstanceResponse> JoinGameInstance(string gameId, string username, string? password = null)
         {
             // Get initialized game instance data, if no game instance was found either no game with given Id has been initialized or the session has expired
             var gameInstance = _gameInstanceCache.Retrieve(gameId) ?? throw GameHubException.CreateIdentifierError(gameId);
+
+            // If game is password protected, authenticate with password
+            if (gameInstance.IsPasswordProtected) if (password == null || !gameInstance.VerifyPassword(password)) throw GameHubException.Create("Provided pasword incorrect", GameHubExceptionCode.AuthenticationFailed);
+
             var playerIdentifier = _playerConnectionCache.Retrieve(Context.ConnectionId).PlayerIdentifier;
             try
             {

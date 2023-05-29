@@ -8,5 +8,7 @@
         UserAddFailed = 201,
         UserEditFailed = 202,
         ActionNotAllowed = 300,
+        AuthenticationRequired = 301,
+        AuthenticationFailed = 302,
     }
 }
