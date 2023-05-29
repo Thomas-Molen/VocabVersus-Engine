@@ -76,7 +76,7 @@ namespace vocabversus_engine.Models
             State = GameState.Lobby;
             RoundInformation = new RoundContainer(wordSet, settings.MinRequiredChars, settings.MaxRequiredChars);
             
-            if (password is not null)
+            if (!string.IsNullOrWhiteSpace(password))
             {
                 this.password = new Password
                 {
