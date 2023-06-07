@@ -241,7 +241,7 @@ namespace vocabversus_engine.Hubs.GameHub
 
             // if user has a valid submition, add the player to the list of completed players, and give points
             // TODO: add logic for calculating and given points to user
-            int pointsToGive = 10;
+            int pointsToGive = word.Length;
             int previousPlayersCompleted = round.PlayersCompleted.Count;
             pointsToGive -= previousPlayersCompleted;
             if (pointsToGive < 1) pointsToGive = 1;
