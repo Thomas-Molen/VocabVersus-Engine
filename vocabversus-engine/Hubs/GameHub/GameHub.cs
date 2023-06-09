@@ -262,11 +262,16 @@ namespace vocabversus_engine.Hubs.GameHub
                 var endTime = DateTimeOffset.UtcNow.AddSeconds(gameInstance.Settings.RoundEndDelay).ToUnixTimeMilliseconds();
                 // Send round ending indicator
                 await Clients.Group(playerConnection.GameInstanceIdentifier).SendAsync("RoundEnding", endTime);
-
-                await Task.Delay(Convert.ToInt32(endTime - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())).ContinueWith(async (_) =>
+                // If no game round delay has been added, execute method imediately
+                // this avoids inconsistent behavior when handling negative numbers in the Task.Delay
+                if (gameInstance.Settings.RoundEndDelay == 0) await StartGameRound(gameInstance.Identifier);
+                else
                 {
-                    await StartGameRound(gameInstance.Identifier);
-                }).Unwrap();
+                    await Task.Delay(Convert.ToInt32(endTime - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())).ContinueWith(async (_) =>
+                    {
+                        await StartGameRound(gameInstance.Identifier);
+                    }).Unwrap();
+                }
             }
         }
 
